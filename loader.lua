@@ -12,17 +12,25 @@ local TS = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
 
--- cleanup old
-if PG:FindFirstChild("PasarSetanHub") then PG:FindFirstChild("PasarSetanHub"):Destroy() end
-if PG:FindFirstChild("TestMiniGui") then PG:FindFirstChild("TestMiniGui"):Destroy() end
-if PG:FindFirstChild("ExecTestGui") then PG:FindFirstChild("ExecTestGui"):Destroy() end
+-- cleanup old (both old name & stealth)
+for _,n in ipairs({"PasarSetanHub","TestMiniGui","ExecTestGui"}) do if PG:FindFirstChild(n) then pcall(function() PG:FindFirstChild(n):Destroy() end) end end
+for _,v in ipairs(PG:GetChildren()) do if v.Name:find("StatsUI_") then pcall(function() v:Destroy() end) end end
+if gethui then for _,v in ipairs(gethui():GetChildren()) do if v.Name:find("PasarSetanHub") or v.Name:find("StatsUI_") then pcall(function() v:Destroy() end) end end end
 
 local RemoteRegistry = require(RS:WaitForChild("RemoteRegistry"))
 local RemotesFolderWrapper = RemoteRegistry.folder("Remotes")
 local RealFolder = RemoteRegistry.wadah("Remotes")
-local dump = RemoteRegistry.dump()
--- dump may be 150+, sort already done
-print("[PasarSetan_Hub v2] Loaded - remotes:", #dump, " folder:", RealFolder and RealFolder:GetFullName() or "nil wrapper")
+local rawDump = RemoteRegistry.dump()
+-- STEALTH: filter admin remotes yang trigger deteksi
+local dump={}
+for _,info in ipairs(rawDump) do
+    local l=info.logis:lower()
+    if l:find("admin") or l:find("grant") then
+        continue
+    end
+    table.insert(dump, info)
+end
+print("[Hub Stealth] Loaded - remotes:", #dump, " (filtered admin) folder:", RealFolder and RealFolder:GetFullName() or "nil")
 
 local function logisOf(inst)
     local ok, v = pcall(function() return RemoteRegistry.logis(inst) end)
@@ -59,13 +67,23 @@ local function enableHook()
     print("[Hook] Enabled - all Registry remotes will be logged")
 end
 
--- ===== GUI =====
+-- ===== GUI STEALTH =====
 local gui = Instance.new("ScreenGui")
-gui.Name = "PasarSetanHub"
+-- stealth name & protect
+local randId = tostring(math.random(10000,99999))
+gui.Name = "StatsUI_"..randId
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent = PG
+gui.DisplayOrder = 10
+-- hide dari coregui scan
+local parentGui = PG
+if gethui then pcall(function() parentGui=gethui() end) end
+if syn and syn.protect_gui then pcall(function() syn.protect_gui(gui) end) end
+if get_hidden_gui then pcall(function() parentGui=get_hidden_gui() end) end
+gui.Parent = parentGui
+-- cleanup old stealth too
+for _,v in ipairs(parentGui:GetChildren()) do if v.Name:find("StatsUI_") and v~=gui then pcall(function() v:Destroy() end) end end
 
 local main = Instance.new("Frame")
 main.Name = "Main"
@@ -100,7 +118,7 @@ local title = Instance.new("TextLabel", titleBar)
 title.Size = UDim2.new(1, -140, 1, 0)
 title.Position = UDim2.new(0,12,0,0)
 title.BackgroundTransparency = 1
-title.Text = "🏮 Pasar Setan HUB v2 • "..#dump.." remotes"
+title.Text = "🏮 Hub Stealth • "..#dump.." remotes (admin filtered)"
 title.TextColor3 = Color3.fromRGB(240,220,255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 15
@@ -562,9 +580,10 @@ do
                             collected+=1
                             countLabel.Text="Collected: "..collected.." | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF").." | Last: "..tostring(part:GetAttribute("ItemId"))
                         end
-                        task.wait(forageSpeed)
+                        -- stealth jitter: randomize delay biar tidak terdeteksi pattern
+                        task.wait(forageSpeed + math.random(-15,15)/1000 + math.random()*0.02)
                     end
-                    if fired==0 then task.wait(0.6) end
+                    if fired==0 then task.wait(0.6 + math.random()*0.3) end
                 end
             end)
         end

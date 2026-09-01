@@ -465,45 +465,111 @@ do
     addButton(pFuzzer, "⛔ Stop (tunggu selesai cycle)", function() print("[Fuzzer] Stop requested - tunggu cycle selesai, atau re-execute hub untuk kill") end, Color3.fromRGB(100,100,100))
 end
 
--- AUTO FIXED
+-- AUTO FIXED v3: Auto Collect Bahan robust
 do
     addLabel(pAuto, "AUTO MODULES — VIP recommended. Toggle ON/OFF.", 22, Color3.fromRGB(180,240,180))
-    -- Auto Forage FIXED: ignore _culled filter, just ItemId
+    -- Auto Collect Bahan v3: sort by distance, un-culled, dual fire method, counter
     local autoForage=false
-    local forageThread
-    local forageBtn = addButton(pAuto, "🌿 Auto Forage: OFF", function() end, Color3.fromRGB(70,140,70))
+    local forageSpeed=0.12
+    local collected=0
+    local useTP=false
+    local filterAll=true
+    local forageBtn = addButton(pAuto, "🌿 Auto Collect Bahan: OFF", function() end, Color3.fromRGB(70,140,70))
+    local countLabel = addLabel(pAuto, "Collected: 0 | Speed: 0.12s | TP: OFF", 20, Color3.fromRGB(180,220,180))
+    -- speed & TP controls
+    local ctrlRow = Instance.new("Frame", pAuto)
+    ctrlRow.Size = UDim2.new(1,-8,0,28)
+    ctrlRow.BackgroundTransparency=1
+    local ctrlList = Instance.new("UIListLayout", ctrlRow)
+    ctrlList.FillDirection=Enum.FillDirection.Horizontal
+    ctrlList.Padding=UDim.new(0,6)
+    local function smallBtn(txt,cb,col)
+        local b=Instance.new("TextButton", ctrlRow)
+        b.Size=UDim2.new(0,78,1,0)
+        b.Text=txt
+        b.Font=Enum.Font.GothamBold
+        b.TextSize=11
+        b.TextColor3=Color3.new(1,1,1)
+        b.BackgroundColor3=col or Color3.fromRGB(60,60,60)
+        Instance.new("UICorner", b).CornerRadius=UDim.new(0,6)
+        b.MouseButton1Click:Connect(cb)
+        return b
+    end
+    local btnSpeedDown = smallBtn("Speed -", function()
+        forageSpeed = math.clamp(forageSpeed-0.02, 0.04, 0.5)
+        countLabel.Text="Collected: "..collected.." | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF")
+    end, Color3.fromRGB(80,80,95))
+    local btnSpeedUp = smallBtn("Speed +", function()
+        forageSpeed = math.clamp(forageSpeed+0.02, 0.04, 0.5)
+        countLabel.Text="Collected: "..collected.." | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF")
+    end, Color3.fromRGB(80,80,95))
+    local btnTP = smallBtn("TP: OFF", function()
+        useTP = not useTP
+        btnTP.Text = useTP and "TP: ON" or "TP: OFF"
+        btnTP.BackgroundColor3 = useTP and Color3.fromRGB(40,160,60) or Color3.fromRGB(80,80,95)
+        countLabel.Text="Collected: "..collected.." | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF")
+    end, Color3.fromRGB(80,80,95))
+    local btnReset = smallBtn("Reset", function() collected=0 countLabel.Text="Collected: 0 | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF") end, Color3.fromRGB(90,60,60))
     forageBtn.MouseButton1Click:Connect(function()
         autoForage = not autoForage
-        forageBtn.Text = autoForage and "🌿 Auto Forage: ON  (firing...)" or "🌿 Auto Forage: OFF"
+        forageBtn.Text = autoForage and "🌿 Auto Collect Bahan: ON" or "🌿 Auto Collect Bahan: OFF"
         forageBtn.BackgroundColor3 = autoForage and Color3.fromRGB(40,160,60) or Color3.fromRGB(70,140,70)
         if autoForage then
-            forageThread = task.spawn(function()
+            task.spawn(function()
                 while autoForage do
                     local sp = WS:FindFirstChild("SpawnBahan")
-                    local fired=0
-                    if sp then
-                        for _,part in ipairs(sp:GetChildren()) do
-                            if not autoForage then break end
-                            -- FIXED: only check ItemId, ignore _culled, check prompt Enabled
-                            if part:GetAttribute("ItemId") then
-                                local prompt=nil
-                                -- search any ProximityPrompt
-                                for _,d in ipairs(part:GetDescendants()) do if d:IsA("ProximityPrompt") then prompt=d break end end
-                                if prompt and prompt.Enabled then
-                                    local ok = pcall(function() fireproximityprompt(prompt) end)
-                                    if ok then fired+=1 end
-                                end
-                            end
-                            task.wait(0.05)
+                    if not sp then task.wait(0.8) continue end
+                    -- kumpulkan + sort by distance nearest first
+                    local list={}
+                    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    for _,part in ipairs(sp:GetChildren()) do
+                        if part:GetAttribute("ItemId") then
+                            local dist = hrp and (hrp.Position - part.Position).Magnitude or 0
+                            table.insert(list, {part=part, dist=dist})
                         end
                     end
-                    if fired>0 then print("[AutoForage] fired "..fired.." prompts") end
-                    task.wait(0.6)
+                    table.sort(list, function(a,b) return a.dist < b.dist end)
+                    local fired=0
+                    for _,e in ipairs(list) do
+                        if not autoForage then break end
+                        local part=e.part
+                        -- force un-culled & visible
+                        pcall(function() part:SetAttribute("_culled", false) end)
+                        local prompt=nil
+                        for _,d in ipairs(part:GetDescendants()) do if d:IsA("ProximityPrompt") then prompt=d break end end
+                        if not prompt then continue end
+                        if not prompt.Enabled then pcall(function() prompt.Enabled=true end) end
+                        -- jika TP ON dan jauh >12, teleport dulu (server cek distance)
+                        if useTP and e.dist > 12 and hrp then
+                            pcall(function() hrp.CFrame = part.CFrame + Vector3.new(0,3,0) end)
+                            task.wait(0.18)
+                        end
+                        local ok=false
+                        if fireproximityprompt then
+                            ok = pcall(function() fireproximityprompt(prompt) end)
+                        end
+                        if not ok then
+                            -- fallback InputHold (untuk executor yang butuh hold)
+                            pcall(function()
+                                prompt:InputHoldBegin()
+                                task.wait(prompt.HoldDuration + 0.05)
+                                prompt:InputHoldEnd()
+                            end)
+                            ok=true
+                        end
+                        if ok then
+                            fired+=1
+                            collected+=1
+                            countLabel.Text="Collected: "..collected.." | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF").." | Last: "..tostring(part:GetAttribute("ItemId"))
+                        end
+                        task.wait(forageSpeed)
+                    end
+                    if fired==0 then task.wait(0.6) end
                 end
             end)
         end
     end)
-    addLabel(pAuto, "Fix: tidak filter _culled lagi, fire semua ItemId. Bypass MaxDistance 6 via exploit.", 28, Color3.fromRGB(170,170,170))
+    addLabel(pAuto, "v3 Fix: sort nearest, un-culled, dual fire (fireproximityprompt + InputHold), counter, speed ±, TP toggle untuk bypass jarak server.", 36, Color3.fromRGB(170,170,170))
 
     -- Auto Harvest FIXED: try multiple payloads, log result
     local autoHarvest=false

@@ -142,11 +142,11 @@ addLabel(content, "<b>Auto Collect Bahan</b> — stealth (no admin remote)", 20,
 local autoForage=false
 local forageSpeed=0.22
 local collected=0
-local useTP=false
+local useTP=true -- default ON biar tidak gagal jarak server (MaxDistance 6)
 local stealthJitter=true
 
 local forageBtn = addButton(content, "🌿 Auto Collect: OFF", function() end, Color3.fromRGB(70,140,70))
-local countLabel = addLabel(content, "Collected: 0 | Speed: 0.22s | TP: OFF | Stealth ON", 18, Color3.fromRGB(180,220,180))
+local countLabel = addLabel(content, "Collected: 0 | Speed: 0.22s | TP: ON (anti gagal jarak)", 18, Color3.fromRGB(180,220,180))
 
 local ctrlRow = Instance.new("Frame", content)
 ctrlRow.Size = UDim2.new(1,-8,0,28)
@@ -174,13 +174,41 @@ local btnSpeedUp = smallBtn("Speed +", function()
     forageSpeed = math.clamp(forageSpeed+0.03, 0.08, 0.6)
     countLabel.Text="Collected: "..collected.." | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF")
 end, Color3.fromRGB(80,80,95))
-local btnTP = smallBtn("TP: OFF", function()
+local btnTP = smallBtn("TP: ON", function()
     useTP = not useTP
     btnTP.Text = useTP and "TP: ON" or "TP: OFF"
     btnTP.BackgroundColor3 = useTP and Color3.fromRGB(40,160,60) or Color3.fromRGB(80,80,95)
     countLabel.Text="Collected: "..collected.." | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF")
-end, Color3.fromRGB(80,80,95))
+end, Color3.fromRGB(40,160,60))
 local btnReset = smallBtn("Reset", function() collected=0 countLabel.Text="Collected: 0 | Speed: "..string.format("%.2f",forageSpeed).."s | TP: "..(useTP and "ON" or "OFF") end, Color3.fromRGB(90,60,60))
+local btnTest = smallBtn("Test 1", function()
+    local sp=WS:FindFirstChild("SpawnBahan")
+    if not sp then print("[Test] no SpawnBahan") return end
+    local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local nearest, ndist=nil, 1e9
+    for _,p in ipairs(sp:GetChildren()) do if p:GetAttribute("ItemId") then
+        local d=hrp and (hrp.Position-p.Position).Magnitude or 0
+        if d<ndist then nearest,ndist=p,d end
+    end end
+    if not nearest then print("[Test] no bahan with ItemId") return end
+    print("[Test] nearest",nearest.Name, nearest:GetAttribute("ItemId"), "dist",math.floor(ndist))
+    local prompt
+    for _,d in ipairs(nearest:GetDescendants()) do if d:IsA("ProximityPrompt") then prompt=d break end end
+    if not prompt then print("[Test] no prompt") return end
+    print("[Test] prompt",prompt:GetFullName(),"Enabled",prompt.Enabled,"Hold",prompt.HoldDuration)
+    pcall(function() nearest:SetAttribute("_culled", false) end)
+    pcall(function() prompt.Enabled=true end)
+    if hrp and ndist>6 then
+        print("[Test] TP to bahan...")
+        TS:Create(hrp, TweenInfo.new(0.4), {CFrame=nearest.CFrame+Vector3.new(0,3,0)}):Play()
+        task.wait(0.45)
+    end
+    local ok=false
+    if fireproximityprompt then ok=pcall(function() fireproximityprompt(prompt) end) print("[Test] fireproximityprompt ->",ok) end
+    if not ok then pcall(function() prompt:InputHoldBegin() task.wait(prompt.HoldDuration+0.05) prompt:InputHoldEnd() print("[Test] InputHold done") end) end
+    task.wait(0.5)
+    print("[Test] after ItemId:", tostring(nearest:GetAttribute("ItemId")), "parent:", nearest.Parent and "exists" or "gone")
+end, Color3.fromRGB(120,90,40))
 
 -- helper: get bahan list shuffled
 local function getBahanList()

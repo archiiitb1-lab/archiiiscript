@@ -1,4 +1,4 @@
-﻿_G.hubError=nil
+_G.hubError=nil
 local function hubMain()
 -- Pasar Setan HUB AUTO ONLY v6 - Anti-Detect + Robust Collect
 -- loadstring(game:HttpGet("https://raw.githubusercontent.com/archiiitb1-lab/archiiiscript/main/loader.lua"))()
@@ -14,18 +14,17 @@ for _,n in ipairs({"PasarSetanHub","TestMiniGui","ExecTestGui"}) do if PG:FindFi
 for _,v in ipairs(PG:GetChildren()) do if v.Name:find("StatsUI_") then pcall(function() v:Destroy() end) end end
 if gethui then for _,v in ipairs(gethui():GetChildren()) do if v.Name:find("PasarSetanHub") or v.Name:find("StatsUI_") then pcall(function() v:Destroy() end) end end end
 
--- GUI STEALTH
+-- GUI STEALTH FIX: selalu parent ke PlayerGui biar muncul, protect optional
 local gui = Instance.new("ScreenGui")
 gui.Name = "StatsUI_"..tostring(math.random(10000,99999))
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.DisplayOrder = 10
-local parentGui = PG
-if gethui then pcall(function() parentGui=gethui() end) end
-if syn and syn.protect_gui then pcall(function() syn.protect_gui(gui) end) end
-if get_hidden_gui then pcall(function() parentGui=get_hidden_gui() end) end
-gui.Parent = parentGui
+gui.DisplayOrder = 999
+gui.Parent = PG
+pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
+-- fallback visible jika gethui sembunyi
+pcall(function() if gethui then gui.Parent = PG end end)
 
 local main = Instance.new("Frame")
 main.Name = "Main"

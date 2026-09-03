@@ -263,33 +263,48 @@ forageBtn.MouseButton1Click:Connect(function()
                     pcall(function() part:SetAttribute("_culled", false) end)
 
                     local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                    -- TP stealth: tween halus jika jauh, jangan instant
-                    if useTP and hrp and e.dist > 10 then
-                        local target = part.CFrame + Vector3.new(0,3,0)
-                        -- tween 0.5-0.7s biar tidak terdeteksi teleport admin
-                        local info = TweenInfo.new(0.5 + math.random()*0.2, Enum.EasingStyle.Linear)
-                        local tween = TS:Create(hrp, info, {CFrame=target})
-                        tween:Play()
-                        tween.Completed:Wait()
-                        task.wait(0.12 + math.random()*0.08)
+                    -- TP stealth: tween halus jika jauh, jangan instant (MaxDistance 6)
+                    if useTP and hrp and e.dist > 6 then
+                            local target = part.CFrame + Vector3.new(0,3,0)
+                            local info = TweenInfo.new(0.45 + math.random()*0.15, Enum.EasingStyle.Linear)
+                            local okTween = pcall(function()
+                                local tween = TS:Create(hrp, info, {CFrame=target})
+                                tween:Play()
+                                tween.Completed:Wait()
+                            end)
+                            if not okTween then pcall(function() hrp.CFrame = target end) end
+                            task.wait(0.15 + math.random()*0.08)
+                            e.dist = 0
                     end
 
-                    -- fire dengan hold duration asli + jitter
+                    -- fire dengan 4 metode (fireproximityprompt 0/1, InputHold, Virtual E) + jitter - FIX E
                     local ok=false
-                    -- coba fireproximityprompt dengan argumen berbeda (beberapa executor butuh arg 1)
+                    local VIM = nil pcall(function() VIM=game:GetService("VirtualInputManager") end)
+                    -- metode 1: fireproximityprompt (bypass MaxDistance)
                     if fireproximityprompt then
                         ok = pcall(function() fireproximityprompt(prompt, 0) end)
                         if not ok then ok = pcall(function() fireproximityprompt(prompt, 1) end) end
                         if not ok then ok = pcall(function() fireproximityprompt(prompt) end) end
                     end
+                    -- metode 2: InputHoldBegin/End (simulasi hold E 0.5s)
                     if not ok then
-                        -- fallback hold
-                        pcall(function()
+                        local ok2 = pcall(function()
                             prompt:InputHoldBegin()
                             task.wait(prompt.HoldDuration + 0.06 + math.random()*0.04)
                             prompt:InputHoldEnd()
                         end)
-                        ok=true
+                        if ok2 then ok=true end
+                    end
+                    -- metode 3: VirtualInput E (simulasi tekan E asli, untuk anti-cheat yang cek input)
+                    if not ok and VIM and hrp then
+                        local cam = WS.CurrentCamera
+                        if cam then pcall(function() cam.CFrame = CFrame.lookAt(hrp.Position, part.Position) end) end
+                        local ok3 = pcall(function()
+                            VIM:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                            task.wait(prompt.HoldDuration + 0.08)
+                            VIM:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                        end)
+                        if ok3 then ok=true end
                     end
 
                     if ok then

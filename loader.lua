@@ -1,4 +1,4 @@
-_G.hubError=nil
+﻿_G.hubError=nil
 local function hubMain()
 -- Pasar Setan HUB AUTO ONLY v6 - Anti-Detect + Robust Collect
 -- loadstring(game:HttpGet("https://raw.githubusercontent.com/archiiitb1-lab/archiiiscript/main/loader.lua"))()
@@ -58,7 +58,7 @@ local title = Instance.new("TextLabel", titleBar)
 title.Size = UDim2.new(1, -110, 1, 0)
 title.Position = UDim2.new(0,12,0,0)
 title.BackgroundTransparency = 1
-title.Text = "🏮 Auto Bahan Stealth"
+title.Text = "ðŸ® Auto Bahan Stealth"
 title.TextColor3 = Color3.fromRGB(240,220,255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
@@ -67,7 +67,7 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 local btnMin = Instance.new("TextButton", titleBar)
 btnMin.Size = UDim2.new(0, 32, 0, 28)
 btnMin.Position = UDim2.new(1, -72, 0, 5)
-btnMin.Text = "—"
+btnMin.Text = "â€”"
 btnMin.Font = Enum.Font.GothamBold
 btnMin.TextSize = 14
 btnMin.TextColor3 = Color3.new(1,1,1)
@@ -76,7 +76,7 @@ Instance.new("UICorner", btnMin).CornerRadius = UDim.new(0,6)
 local btnClose = Instance.new("TextButton", titleBar)
 btnClose.Size = UDim2.new(0, 32, 0, 28)
 btnClose.Position = UDim2.new(1, -36, 0, 5)
-btnClose.Text = "✕"
+btnClose.Text = "âœ•"
 btnClose.Font = Enum.Font.GothamBold
 btnClose.TextSize = 14
 btnClose.TextColor3 = Color3.new(1,1,1)
@@ -90,8 +90,8 @@ local origPos=main.Position
 local content
 local function setMinimized(state)
     isMinimized=state
-    if state then btnMin.Text="▢" if content then content.Visible=false end TS:Create(main, TweenInfo.new(0.2), {Size=UDim2.new(0,380,0,38)}):Play()
-    else btnMin.Text="—" if content then content.Visible=true end TS:Create(main, TweenInfo.new(0.2), {Size=origSize, Position=origPos}):Play() end
+    if state then btnMin.Text="â–¢" if content then content.Visible=false end TS:Create(main, TweenInfo.new(0.2), {Size=UDim2.new(0,380,0,38)}):Play()
+    else btnMin.Text="â€”" if content then content.Visible=true end TS:Create(main, TweenInfo.new(0.2), {Size=origSize, Position=origPos}):Play() end
 end
 btnMin.MouseButton1Click:Connect(function() setMinimized(not isMinimized) end)
 titleBar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 and i.ClickCount==2 then setMinimized(not isMinimized) end end)
@@ -138,14 +138,14 @@ local function addButton(parent, text, cb, col)
 end
 
 -- AUTO COLLECT V6 - ANTI DETECT + ANTI ADMIN
-addLabel(content, "<b>Auto Collect Bahan</b> — stealth (no admin remote)", 20, Color3.fromRGB(180,240,180))
+addLabel(content, "<b>Auto Collect Bahan</b> â€” stealth (no admin remote)", 20, Color3.fromRGB(180,240,180))
 local autoForage=false
 local forageSpeed=0.22
 local collected=0
 local useTP=true -- default ON biar tidak gagal jarak server (MaxDistance 6)
 local stealthJitter=true
 
-local forageBtn = addButton(content, "🌿 Auto Collect: OFF", function() end, Color3.fromRGB(70,140,70))
+local forageBtn = addButton(content, "ðŸŒ¿ Auto Collect: OFF", function() end, Color3.fromRGB(70,140,70))
 local countLabel = addLabel(content, "Collected: 0 | Speed: 0.22s | TP: ON (anti gagal jarak)", 18, Color3.fromRGB(180,220,180))
 
 local ctrlRow = Instance.new("Frame", content)
@@ -231,7 +231,7 @@ end
 
 forageBtn.MouseButton1Click:Connect(function()
     autoForage = not autoForage
-    forageBtn.Text = autoForage and "🌿 Auto Collect: ON (stealth)" or "🌿 Auto Collect: OFF"
+    forageBtn.Text = autoForage and "ðŸŒ¿ Auto Collect: ON (stealth)" or "ðŸŒ¿ Auto Collect: OFF"
     forageBtn.BackgroundColor3 = autoForage and Color3.fromRGB(40,160,60) or Color3.fromRGB(70,140,70)
     if autoForage then
         task.spawn(function()
@@ -277,26 +277,32 @@ forageBtn.MouseButton1Click:Connect(function()
                             e.dist = 0
                     end
 
-                    -- fire dengan 4 metode (fireproximityprompt 0/1, InputHold, Virtual E) + jitter - FIX E
+                    -- FIX E v7.1: Humanoid MoveTo + 4 metode
+                    local Humanoid = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                    if hrp and e.dist > 6 then
+                        if Humanoid then
+                            pcall(function()
+                                Humanoid:MoveTo(part.Position)
+                                local t0=tick()
+                                repeat task.wait(0.1) until not part:GetAttribute("ItemId") or (hrp.Position - part.Position).Magnitude < 5 or tick()-t0>4
+                            end)
+                            task.wait(0.12)
+                        end
+                    end
                     local ok=false
                     local VIM = nil pcall(function() VIM=game:GetService("VirtualInputManager") end)
                     -- metode 1: fireproximityprompt (bypass MaxDistance)
-                    if fireproximityprompt then
-                        ok = pcall(function() fireproximityprompt(prompt, 0) end)
-                        if not ok then ok = pcall(function() fireproximityprompt(prompt, 1) end) end
-                        if not ok then ok = pcall(function() fireproximityprompt(prompt) end) end
+                    -- metode 1: fireproximityprompt + cek ItemId hilang
+                    if fireproximityprompt and (not ok or part:GetAttribute("ItemId")) then
+                        pcall(function() fireproximityprompt(prompt) end) task.wait(0.32)
+                        if not part:GetAttribute("ItemId") then ok=true else ok=false end
+                        if not ok then pcall(function() fireproximityprompt(prompt,1) end) task.wait(0.32) if not part:GetAttribute("ItemId") then ok=true end end
                     end
-                    -- metode 2: InputHoldBegin/End (simulasi hold E 0.5s)
-                    if not ok then
-                        local ok2 = pcall(function()
-                            prompt:InputHoldBegin()
-                            task.wait(prompt.HoldDuration + 0.06 + math.random()*0.04)
-                            prompt:InputHoldEnd()
-                        end)
-                        if ok2 then ok=true end
+                    if (not ok or part:GetAttribute("ItemId")) then
+                        local ok2=pcall(function() prompt:InputHoldBegin() task.wait(prompt.HoldDuration+0.08) prompt:InputHoldEnd() end) task.wait(0.32)
+                        if ok2 and not part:GetAttribute("ItemId") then ok=true end
                     end
-                    -- metode 3: VirtualInput E (simulasi tekan E asli, untuk anti-cheat yang cek input)
-                    if not ok and VIM and hrp then
+                    if (not ok or part:GetAttribute("ItemId")) and VIM and hrp then
                         local cam = WS.CurrentCamera
                         if cam then pcall(function() cam.CFrame = CFrame.lookAt(hrp.Position, part.Position) end) end
                         local ok3 = pcall(function()
@@ -338,7 +344,7 @@ forageBtn.MouseButton1Click:Connect(function()
 end)
 
 addLabel(content, "Stealth: shuffle 8 terdekat, tween TP 0.5s, jitter, jeda 12x. Tanpa remote admin.", 26, Color3.fromRGB(170,170,170))
-addButton(content, "📍 TP Spawn Random (test)", function()
+addButton(content, "ðŸ“ TP Spawn Random (test)", function()
     local sp=WS:FindFirstChild("SpawnBahan")
     if sp and #sp:GetChildren()>0 then
         local r=sp:GetChildren()[math.random(1,#sp:GetChildren())]
